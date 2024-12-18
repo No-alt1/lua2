@@ -13129,3 +13129,11 @@ task.spawn(function()
 	if IsOnMobile then notify("Unstable Device", "On mobile, Infinite Yield may have issues or features that are not functioning correctly.") end
 end)
 end)
+
+Section:NewSlider("SliderText", "SliderInfo", 500, 16, function(s) -- 500 (MaxValue) | 16 (MinValue)
+    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = s
+end)
+
+Section:NewSlider("SliderText", "SliderInfo", 500, 50, function(s) -- 500 (MaxValue) | 50 (MinValue)
+    game.Players.LocalPlayer.Character.Humanoid.JumpPower = s
+end)
