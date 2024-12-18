@@ -1,12 +1,12 @@
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
 
-local Window = Library.CreateLib("Its up to you", "DarkTheme") -- Theme
+local Window = Library.CreateLib(Univesal", "DarkTheme") -- Theme
 
-local Tab = Window:NewTab("AllInOne")
+local Tab = Window:NewTab("Cheats")
 
 local Section = Tab:NewSection("Aim")
 
-Section:NewButton("Aim", "loadykyk", function()
+Section:NewButton("Aim", "Aimbot", function()
 local dwCamera = workspace.CurrentCamera
 local dwRunService = game:GetService("RunService")
 local dwUIS = game:GetService("UserInputService")
@@ -350,12 +350,4 @@ game.Players.PlayerAdded:Connect(function(newplr)
     if newplr.Name ~= player.Name then
         coroutine.wrap(ESP)(newplr)
     end
-end)
-
-Section:NewSlider("Walk", "Morespeed", 250, 16, function(v) -- 250 (MaxValue) | 16 (MinValue)
-    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = v
-end)
-
-Section:NewSlider("Jump", "Morehigh", 250, 50, function(v) -- 250 (MaxValue) | 50 (MinValue)
-    game.Players.LocalPlayer.Character.Humanoid.JumpPower = v
 end)
