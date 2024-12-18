@@ -13131,6 +13131,7 @@ end)
 end)
 
 Section:NewButton("Godmode", "God", function()
+
 class 'Godmode'
 
 --Quick string to boolean function - There is obviously a better way to do this...
