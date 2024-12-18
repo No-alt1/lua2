@@ -7,7 +7,7 @@ local Tab = Window:NewTab("AllInOne")
 local Section = Tab:NewSection("Aim")
 
 Section:NewButton("Aim", "loadykyk", function()
-    local dwCamera = workspace.CurrentCamera
+local dwCamera = workspace.CurrentCamera
 local dwRunService = game:GetService("RunService")
 local dwUIS = game:GetService("UserInputService")
 local dwPlayers = game:GetService("Players")
@@ -176,7 +176,6 @@ end
 ps.PlayerAdded:Connect(p_added)
 
 -- HealthTracersBoxESP
-
 local Settings = {
     Box_Color = Color3.fromRGB(255, 0, 0),
     Tracer_Color = Color3.fromRGB(255, 0, 0),
