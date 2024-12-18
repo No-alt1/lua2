@@ -13137,3 +13137,7 @@ end)
 Section:NewSlider("JumpPower", "Morehigh", 500, 50, function(s) -- 500 (MaxValue) | 50 (MinValue)
     game.Players.LocalPlayer.Character.Humanoid.JumpPower = s
 end)
+
+Section:NewKeybind("Keybind", "Keybinding", Enum.KeyCode.P, function()
+	Library:ToggleUI()
+end)
