@@ -7,7 +7,7 @@ local Tab = Window:NewTab("Cheats")
 local Section = Tab:NewSection("Aim")
 
 Section:NewButton("Aimbot", "Universak", function()
-    local dwCamera = workspace.CurrentCamera
+local dwCamera = workspace.CurrentCamera
 local dwRunService = game:GetService("RunService")
 local dwUIS = game:GetService("UserInputService")
 local dwPlayers = game:GetService("Players")
