@@ -352,7 +352,7 @@ game.Players.PlayerAdded:Connect(function(newplr)
     end
 end)
 end)
-Section:NewButton("ButtonText", "ButtonInfo", function()
+Section:NewButton("Admin", "Admin", function()
 if IY_LOADED and not _G.IY_DEBUG == true then
     -- error("Infinite Yield is already running!", 0)
     return
