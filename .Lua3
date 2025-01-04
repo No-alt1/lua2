@@ -24,7 +24,7 @@ local Window = Rayfield:CreateWindow({
        RememberJoins = true 
     },
  
-    KeySystem = true,
+    KeySystem = false,
     KeySettings = {
        Title = "M3C Hub",
        Subtitle = "Key System",
