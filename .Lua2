@@ -1,11 +1,47 @@
-local teamCheck = false
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+
+-- Load the library and required components
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+local Window = Library:CreateWindow({
+    Title = 'Aimbot, ESP, and FOV Menu',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+local Tabs = {
+    Main = Window:AddTab('Main'),
+    ['UI Settings'] = Window:AddTab('UI Settings')
+}
+
+-- Create the ESP variable
+local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/No-alt1/lua2/refs/heads/main/EspLua"))()
+
+-- Set initial ESP settings (all disabled)
+ESP.Enabled = false
+ESP.ShowBox = false
+ESP.BoxType = "Corner Box Esp"
+ESP.ShowName = false
+ESP.ShowHealth = false
+ESP.ShowTracer = false
+ESP.ShowDistance = false
+ESP.MaxDistance = 1000 -- Set a default max distance for ESP
+
+-- Create the aimbot variables
 local fov = 250  -- Set initial FOV circle radius to 250
 local smoothing = 1  -- Initial smoothing value for aimbot set to 1
+local prediction = 0  -- Initial prediction value set to 0 (no prediction)
 local aimbotEnabled = false
 local fovCircleEnabled = false
 local rgbEffectEnabled = false  -- Start with RGB effect disabled (can toggle manually)
 local rgbDelay = 0.2  -- Initial delay for the transition between colors (set to 0.2)
 local fovColor = Color3.fromRGB(255, 128, 128) -- Default color
+
+local teamCheckEnabled = false -- Toggle for team check
 
 local rgbHue = 0  -- Start with hue at 0 (red)
 local RunService = game:GetService("RunService")
@@ -22,61 +58,88 @@ FOVring.Transparency = 1
 FOVring.Color = fovColor
 FOVring.Position = camera.ViewportSize / 2
 
--- Function for linear interpolation between two colors
+-- Function to linear interpolation between two colors
 local function lerpColor(startColor, endColor, t)
     return startColor:Lerp(endColor, t)
 end
 
--- Function to get the closest target to the crosshair
-local function getClosest(cframe)
-    local ray = Ray.new(cframe.Position, cframe.LookVector).Unit
-    local target = nil
-    local mag = math.huge
-    
-    for _, v in pairs(game.Players:GetPlayers()) do
-        if v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("Humanoid") and v.Character:FindFirstChild("HumanoidRootPart") and v ~= localPlayer and (v.Team ~= localPlayer.Team or not teamCheck) then
-            local magBuf = (v.Character.Head.Position - ray:ClosestPoint(v.Character.Head.Position)).Magnitude
-            if magBuf < mag then
-                mag = magBuf
-                target = v
+-- Function to get the closest target to the crosshair with prediction
+local function getClosestWithPrediction(cframe)
+    local closestTarget = nil
+    local closestDistance = math.huge
+
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") and player ~= localPlayer then
+            if teamCheckEnabled and player.Team == localPlayer.Team then
+                continue
             end
-        end
-    end
-    
-    return target
-end
 
-local loop
-local function startAimbot()
-    loop = RunService.RenderStepped:Connect(function()
-        if aimbotEnabled then
-            local pressed = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-            local zz = camera.ViewportSize / 2
-            
-            if pressed then
-                local curTar = getClosest(camera.CFrame)
-                if curTar then
-                    local ssHeadPoint = camera:WorldToScreenPoint(curTar.Character.Head.Position)
-                    ssHeadPoint = Vector2.new(ssHeadPoint.X, ssHeadPoint.Y)
-                    local targetPos = curTar.Character.Head.Position
+            local head = player.Character.Head
+            local predictedPosition = prediction == 0 and head.Position or player.Character.HumanoidRootPart.Position + (player.Character.HumanoidRootPart.Velocity * prediction)
 
-                    -- Calculate smooth camera movement
-                    local newCFrame = CFrame.new(camera.CFrame.Position, targetPos)
-                    local smoothCFrame = camera.CFrame:Lerp(newCFrame, smoothing) -- Apply smoothing factor
-                    camera.CFrame = smoothCFrame
+            local viewVector = (predictedPosition - camera.CFrame.Position).Unit
+            local dotProduct = camera.CFrame.LookVector:Dot(viewVector)
+
+            if dotProduct > 0 then -- Target is in front
+                local screenPoint, onScreen = camera:WorldToViewportPoint(predictedPosition)
+                if onScreen then -- Target is visible on screen
+                    local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - camera.ViewportSize / 2).Magnitude
+                    if distance < closestDistance and distance <= fov then
+                        closestDistance = distance
+                        closestTarget = player
+                    end
                 end
             end
         end
+    end
 
-        if UserInputService:IsKeyDown(Enum.KeyCode.Delete) then
-            if loop then
-                loop:Disconnect()
-                loop = nil
-                FOVring:Remove()
+    return closestTarget
+end
+
+local function updateESPVisibility()
+    if ESP.Enabled then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player.Character and player.Character:FindFirstChild("Head") and player ~= localPlayer then
+                local distance = (player.Character.Head.Position - camera.CFrame.Position).Magnitude
+                if distance > ESP.MaxDistance then
+                    ESP:Hide(player)
+                else
+                    ESP:Show(player)
+                end
             end
         end
-    end)
+    end
 end
+
+RunService.RenderStepped:Connect(function()
+    updateESPVisibility()
+
+    if aimbotEnabled then
+        local pressed = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+
+        if pressed then
+            local newTarget = getClosestWithPrediction(camera.CFrame)
+            if newTarget ~= currentTarget then
+                currentTarget = newTarget -- Update target only if it changes
+            end
+
+            if currentTarget then
+                local targetPosition = currentTarget.Character.Head.Position
+
+                if instantLockEnabled then
+                    camera.CFrame = CFrame.new(camera.CFrame.Position, targetPosition)
+                else
+                    local smoothCFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetPosition), math.clamp(smoothing / 10, 0.05, 0.2))
+                    camera.CFrame = smoothCFrame
+                end
+            end
+        else
+            currentTarget = nil -- Reset target if not aiming
+        end
+    end
+end)
+
+print("Current Target:", currentTarget and currentTarget.Name or "None")
 
 -- Update FOV Circle and RGB Effect
 local function updateFOVCircle()
@@ -88,8 +151,6 @@ local function updateFOVCircle()
         -- Smooth hue transition to cycle through colors if RGB effect is enabled
         if rgbEffectEnabled then
             rgbHue = (rgbHue + rgbDelay * RunService.RenderStepped:Wait()) % 1  -- Ensure hue stays between 0 and 1
-
-            -- Create smooth color transitions based on hue values (RGB effect)
             FOVring.Color = Color3.fromHSV(rgbHue, 1, 1)  -- Max saturation and brightness for vivid colors
         else
             FOVring.Color = fovColor
@@ -99,59 +160,78 @@ local function updateFOVCircle()
     end
 end
 
--- Create the library window and settings
-local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+-- Add the groupbox and the toggle in the main tab (left)
+local LeftGroupBox = Tabs.Main:AddLeftGroupbox('Aimbot Settings')
 
-local Window = Library:CreateWindow({
-    Title = 'M3C Universals Aimbot',  -- Changed the title to "M3C Universals Aimbot"
-    Center = true,
-    AutoShow = true,
-    TabPadding = 8,
-    MenuFadeTime = 0.2
-})
-
-local Tabs = {
-    Main = Window:AddTab('Main'),
-    ['UI Settings'] = Window:AddTab('UI Settings'),
-}
-
--- Create the "Aimbot" groupbox inside the "Main" tab
-local AimbotGroupBox = Tabs.Main:AddLeftGroupbox('Aimbot')
-
--- Add the aimbot toggle (First Toggle)
-AimbotGroupBox:AddToggle('AimbotToggle', {
+-- Aimbot Settings
+LeftGroupBox:AddToggle('AimbotEnabled', {
     Text = 'Enable Aimbot',
-    Default = false,
-    Tooltip = 'Enable or disable the aimbot feature.',
+    Default = false,  -- Default value is off
+    Tooltip = 'Enable or disable the aimbot.',
     Callback = function(Value)
         aimbotEnabled = Value
         if aimbotEnabled then
-            startAimbot() -- Start the aimbot if enabled
+            startAimbot()
+        else
+            if loop then
+                loop:Disconnect()
+                loop = nil
+            end
         end
     end
 })
 
--- Add the Smoothness slider for aimbot (Slider directly under the Aimbot toggle)
-AimbotGroupBox:AddSlider('AimbotSmoothnessSlider', {
-    Text = 'Aimbot Smoothness',
-    Default = smoothing,  -- Set the default value to 1
-    Min = 0.05,
-    Max = 1,
-    Rounding = 2,
-    Tooltip = 'Adjust the smoothness of the aimbot. Lower values result in faster, more direct movements.',
+-- Aimbot Smoothing Slider
+LeftGroupBox:AddSlider('AimbotSmoothing', {
+    Text = 'Aimbot Smoothing',
+    Default = 1,
+    Min = 0,
+    Max = 10,
+    Rounding = 1,
+    Tooltip = 'Adjust the smoothing of the aimbot.',
     Callback = function(Value)
         smoothing = Value
     end
 })
 
--- Create a new group box called "FOV & RGB" below the Aimbot group box
-local FovAndRgbGroupBox = Tabs.Main:AddLeftGroupbox('FOV & RGB')
+-- Aimbot Prediction Slider
+LeftGroupBox:AddSlider('AimbotPrediction', {
+    Text = 'Aimbot Prediction',
+    Default = 0,
+    Min = 0,
+    Max = 50,
+    Rounding = 1,
+    Tooltip = 'Adjust the amount of prediction applied to the aimbot.',
+    Callback = function(Value)
+        prediction = Value
+    end
+})
 
--- Add the FOV Circle toggle (Second Toggle)
-FovAndRgbGroupBox:AddToggle('FovCircleToggle', {
+-- New Aimbot Instant Lock Toggle
+LeftGroupBox:AddToggle('InstantLock', {
+    Text = 'Enable Instant Lock',
+    Default = false,  -- Default value is off
+    Tooltip = 'Lock instantly onto target\'s head without prediction or smoothing.',
+    Callback = function(Value)
+        instantLockEnabled = Value
+    end
+})
+
+-- New Team Check Toggle
+LeftGroupBox:AddToggle('TeamCheck', {
+    Text = 'Enable Team Check',
+    Default = false,
+    Tooltip = 'Prevent locking onto teammates.',
+    Callback = function(Value)
+        teamCheckEnabled = Value
+    end
+})
+
+-- Add FOV Circle GroupBox (separate group box for FOV circle)
+local FOVGroupBox = Tabs.Main:AddLeftGroupbox('FOV Circle Settings')
+
+-- FOV Circle Toggle
+FOVGroupBox:AddToggle('FovCircleToggle', {
     Text = 'Enable FOV Circle',
     Default = false,
     Tooltip = 'Enable or disable the FOV circle.',
@@ -161,10 +241,10 @@ FovAndRgbGroupBox:AddToggle('FovCircleToggle', {
     end
 })
 
--- Add the FOV slider (Slider directly under the FOV Circle toggle)
-FovAndRgbGroupBox:AddSlider('FovSlider', {
+-- FOV Circle Radius Slider
+FOVGroupBox:AddSlider('FovSlider', {
     Text = 'FOV Circle Radius',
-    Default = 250,  -- Set the default value to 250
+    Default = 250,
     Min = 1,
     Max = 1000,
     Rounding = 0,
@@ -175,10 +255,10 @@ FovAndRgbGroupBox:AddSlider('FovSlider', {
     end
 })
 
--- Add RGB Effect Toggle (Third Toggle)
-FovAndRgbGroupBox:AddToggle('RgbEffectToggle', {
+-- RGB Effect Toggle
+FOVGroupBox:AddToggle('RgbEffectToggle', {
     Text = 'Enable RGB Effect',
-    Default = rgbEffectEnabled,
+    Default = false,
     Tooltip = 'Enable or disable the RGB color cycling effect on the FOV circle.',
     Callback = function(Value)
         rgbEffectEnabled = Value
@@ -186,10 +266,10 @@ FovAndRgbGroupBox:AddToggle('RgbEffectToggle', {
     end
 })
 
--- Add the RGB Delay slider (Slider under the RGB Effect toggle)
-FovAndRgbGroupBox:AddSlider('RgbDelaySlider', {
+-- RGB Effect Delay Slider
+FOVGroupBox:AddSlider('RgbDelaySlider', {
     Text = 'RGB Effect Delay (s)',
-    Default = rgbDelay,  -- Set the default value to 0.2
+    Default = rgbDelay,
     Min = 0.01,
     Max = 1,
     Rounding = 2,
@@ -199,83 +279,73 @@ FovAndRgbGroupBox:AddSlider('RgbDelaySlider', {
     end
 })
 
--- Create the new "Additional Settings" group box
-local AdditionalSettingsGroupBox = Tabs.Main:AddLeftGroupbox('Additional Settings')
+-- Add GroupBox for ESP Settings (right)
+local ESPGroupBox = Tabs.Main:AddRightGroupbox('ESP Settings')
 
--- Removed the Example Slider
-
--- Add a placeholder toggle (Example)
-AdditionalSettingsGroupBox:AddToggle('ExampleToggle', {
-    Text = 'Example Toggle',
-    Default = false,
-    Tooltip = 'Example toggle for additional settings.',
+-- Manual Toggle for ESP and its options
+ESPGroupBox:AddToggle('ESPEnabled', {
+    Text = 'Enable ESP',
+    Default = false,  -- Default value is off
+    Tooltip = 'Enable or disable ESP',
     Callback = function(Value)
-        print("Example Toggle: " .. tostring(Value))
+        ESP.Enabled = Value
     end
 })
 
--- UI Settings tab for keybindings, configurations, etc.
-local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
-
--- Adding a button to unload the library (for cleanup)
-MenuGroup:AddButton('Unload', function() Library:Unload() end)
-
--- SaveManager and ThemeManager configuration
-SaveManager:SetLibrary(Library)
-ThemeManager:SetLibrary(Library)
-
-SaveManager:SetFolder('MyScriptHub/specific-game')
-ThemeManager:SetFolder('MyScriptHub')
-
--- Build the save/load config section in the UI settings tab
-SaveManager:BuildConfigSection(Tabs['UI Settings'])
-
--- Build the theme manager UI section
-ThemeManager:ApplyToTab(Tabs['UI Settings'])
-
--- Load autoload config if available
-SaveManager:LoadAutoloadConfig()
-
--- Setting the watermark to be visible
-Library:SetWatermarkVisibility(true)
-
--- Dynamically update watermark with fps and ping data
-local FrameTimer = tick()
-local FrameCounter = 0
-local FPS = 60
-
-local WatermarkConnection = game:GetService('RunService').RenderStepped:Connect(function()
-    FrameCounter += 1
-    if (tick() - FrameTimer) >= 1 then
-        FPS = FrameCounter
-        FrameTimer = tick()
-        FrameCounter = 0
+-- Manual toggle for individual ESP features
+ESPGroupBox:AddToggle('ShowBox', {
+    Text = 'Show Box',
+    Default = false,  -- Default value is off
+    Tooltip = 'Enable or disable ESP boxes',
+    Callback = function(Value)
+        ESP.ShowBox = Value
     end
-    Library:SetWatermark(('M3C Hub | %s fps | %s ms'):format(math.floor(FPS), math.floor(game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue())))
-end)
+})
 
--- Unloading cleanup
-Library:OnUnload(function()
-    WatermarkConnection:Disconnect()
-    print('Unloaded!')
-    Library.Unloaded = true
-end)
+ESPGroupBox:AddToggle('ShowName', {
+    Text = 'Show Name',
+    Default = false,  -- Default value is off
+    Tooltip = 'Enable or disable player names in ESP',
+    Callback = function(Value)
+        ESP.ShowName = Value
+    end
+})
 
--- Call updateFOVCircle function and update FOV every frame
-game:GetService("RunService").RenderStepped:Connect(function()
-    updateFOVCircle()  -- Keep updating the RGB effect and FOV circle
-end)
+ESPGroupBox:AddToggle('ShowHealth', {
+    Text = 'Show Health',
+    Default = false,  -- Default value is off
+    Tooltip = 'Enable or disable player healthbar in ESP',
+    Callback = function(Value)
+        ESP.ShowHealth = Value
+    end
+})
 
--- Custom Cursor Setup
-local customCursor = Drawing.new("Circle")
-customCursor.Visible = true
-customCursor.Radius = 10  -- You can adjust the size of the cursor
-customCursor.Color = Color3.fromRGB(255, 255, 255)  -- Set color to white
-customCursor.Thickness = 1
-customCursor.Transparency = 1  -- Fully opaque cursor
+ESPGroupBox:AddToggle('ShowTracer', {
+    Text = 'Show Tracers',
+    Default = false,  -- Default value is off
+    Tooltip = 'Enable or disable tracers in ESP',
+    Callback = function(Value)
+        ESP.ShowTracer = Value
+    end
+})
 
--- Update the custom cursor position
-RunService.RenderStepped:Connect(function()
-    local mousePosition = UserInputService:GetMouseLocation()  -- Get the current mouse position
-    customCursor.Position = mousePosition  -- Update the position of the custom cursor
-end)
+ESPGroupBox:AddToggle('ShowDistance', {
+    Text = 'Show Distance',
+    Default = false,  -- Default value is off
+    Tooltip = 'Enable or disable distance display in ESP',
+    Callback = function(Value)
+        ESP.ShowDistance = Value
+    end
+})
+
+ESPGroupBox:AddSlider('MaxDistance', {
+    Text = 'ESP Max Distance',
+    Default = 1000,
+    Min = 100,
+    Max = 5000,
+    Rounding = 0,
+    Tooltip = 'Adjust the maximum distance for ESP visibility.',
+    Callback = function(Value)
+        ESP.MaxDistance = Value
+    end
+})
