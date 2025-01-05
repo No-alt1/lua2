@@ -56,6 +56,12 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/No-alt1/lua2/refs/hea
     end,
  })
 
+   Name = "SimpleSpyV3",
+    Callback = function()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/No-alt1/lua2/refs/heads/main/ScriptToolsHub"))()
+    end,
+ })
+
 --Admin
 local Tab = Window:CreateTab("Admin") -- So this is Admin
 
