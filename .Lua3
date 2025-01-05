@@ -3,7 +3,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 --Windows
 local Window = Rayfield:CreateWindow({
-    Name = "M3C Hub (Don't have a toggle options yet)",
+    Name = "M3C Hub",
     Icon = 0,
     LoadingTitle = "M3C UnivelsalCheat",
     LoadingSubtitle = "by who???",
@@ -56,7 +56,8 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/No-alt1/lua2/refs/hea
     end,
  })
 
-   Name = "SimpleSpyV3",
+local Button = Tab:CreateButton({
+   Name = "Script Tools Hub",
     Callback = function()
 loadstring(game:HttpGet("https://raw.githubusercontent.com/No-alt1/lua2/refs/heads/main/ScriptToolsHub"))()
     end,
